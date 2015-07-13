@@ -4,7 +4,7 @@ namespace Stack;
 
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Symfony\Component\HttpKernel\TerminableInterface;
 
 class LazyHttpKernelTest extends \PHPUnit_Framework_TestCase
 {
@@ -97,6 +97,28 @@ class LazyHttpKernelTest extends \PHPUnit_Framework_TestCase
         $this->assertSame('Hello World!', $kernel->handle(Request::create('/'))->getContent());
     }
 
+    /** @test */
+    public function shouldBeTerminable()
+    {
+        $app = $this->createHelloTerminableKernel();
+        $kernel = lazy(function() use ($app) {
+            return $app;
+        });
+
+        $request = Request::create('/');
+        $response = $kernel->handle($request);
+        $kernel->terminate($request, $response);
+
+        $this->assertTrue($app->isTerminated());
+    }
+
+    private function createHelloTerminableKernel()
+    {
+        return new CallableAndTerminableHttpKernel(function(Request $request) {
+            return new Response('Hello World!');
+        });
+    }
+
     private function createHelloKernel()
     {
         return $this->createKernel('Hello World!');
@@ -107,5 +129,33 @@ class LazyHttpKernelTest extends \PHPUnit_Framework_TestCase
         return new CallableHttpKernel(function (Request $request) use ($body) {
             return new Response($body);
         });
+    }
+}
+
+class CallableAndTerminableHttpKernel extends CallableHttpKernel implements TerminableInterface
+{
+    /**
+     * @var bool
+     */
+    private $terminated = false;
+
+    /**
+     * Terminates a request/response cycle.
+     *
+     * Should be called after sending the response and before shutting down the kernel.
+     *
+     * @param Request $request A Request instance
+     * @param Response $response A Response instance
+     *
+     * @api
+     */
+    public function terminate(Request $request, Response $response)
+    {
+        $this->terminated = true;
+    }
+
+    public function isTerminated()
+    {
+        return $this->terminated;
     }
 }

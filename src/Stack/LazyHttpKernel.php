@@ -5,8 +5,9 @@ namespace Stack;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Symfony\Component\HttpKernel\TerminableInterface;
 
-class LazyHttpKernel implements HttpKernelInterface
+class LazyHttpKernel implements HttpKernelInterface, TerminableInterface
 {
     private $factory;
     private $app;
@@ -26,5 +27,12 @@ class LazyHttpKernel implements HttpKernelInterface
         $this->app = $this->app ?: call_user_func($this->factory);
 
         return $this->app;
+    }
+
+    public function terminate(Request $request, Response $response)
+    {
+        if ($this->app instanceof TerminableInterface) {
+            $this->app->terminate($request, $response);
+        }
     }
 }
